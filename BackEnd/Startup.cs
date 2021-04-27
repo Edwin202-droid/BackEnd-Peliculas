@@ -1,10 +1,10 @@
 using BackEnd.Filtros;
-using BackEnd.Repositorio;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -29,9 +29,25 @@ namespace BackEnd
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            //Automaper DTO - CONTROLLERS
+            services.AddAutoMapper(typeof(Startup));
+            //Base de datos 
+            services.AddDbContext<ApplicationDbContext>(options =>
+                    options.UseSqlServer(Configuration.GetConnectionString("BDPeliculasAngular")));
+
+            /* CORS */
+            services.AddCors(options => {
+
+                /* Desde appsetting en desarrollo */
+                var frontedURL = Configuration.GetValue<string>("Frontend_URL");
+
+                options.AddDefaultPolicy(builder =>{
+                    builder.WithOrigins(frontedURL).AllowAnyMethod().AllowAnyHeader()
+                            .WithExposedHeaders(new string[] {"cantidadTotalRegistros"} );
+                });
+            });
+
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
-            services.AddScoped<IRepositorio, RepositorioEnMemoria>(); 
-            //filtro glopbal de excepcion
             services.AddControllers( options => {
                 options.Filters.Add(typeof(FiltroDeExcepcion));
             });
@@ -42,17 +58,8 @@ namespace BackEnd
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, ILogger<Startup> logger)
         {
-            /* MIDDLEWARE */
-
-            /* app.Map("/map1", (app)=>{
-                app.Run(async context => {
-                await context.Response.WriteAsync("Estoy interceptando el pipeline");
-                }); 
-            }); */
-            //recien cuando pasemos por /mapa1, se intercepta el pipeline
-            //Middlewares que empiezan con Use no terminan el proceso
             
             if (env.IsDevelopment())
             {
@@ -64,6 +71,8 @@ namespace BackEnd
             app.UseHttpsRedirection();
 
             app.UseRouting();
+
+            app.UseCors();
 
             app.UseAuthentication();
 

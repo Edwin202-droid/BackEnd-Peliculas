@@ -2,12 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using AutoMapper;
+using BackEnd.DTOs;
 using BackEnd.Entidades;
-using BackEnd.Repositorio;
+using BackEnd.Utilidades;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace BackEnd.Controllers{
@@ -16,78 +19,81 @@ namespace BackEnd.Controllers{
     [Route("api/generos")]
     [ApiController] //El modelo de una accion es invalido, muestra al usuario el error
     //si no esta autorizados. Error 401
-    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    //[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public class GenerosController: ControllerBase
     {
-        private readonly IRepositorio repositorio;
         private readonly ILogger<GenerosController> logger;
+        private readonly ApplicationDbContext context;
+        private readonly IMapper mapper;
 
 
         /* En el constructor inyectamos lo que usaremos, y siempre debemos inyectar el private readonly*/
-        public GenerosController(IRepositorio repositorio,
-                                ILogger<GenerosController> logger)
+        public GenerosController( ILogger<GenerosController> logger, ApplicationDbContext context, IMapper mapper)
         {
-            this.repositorio = repositorio;
             this.logger = logger;
-            this.logger= logger;
+            this.context = context;
+            this.mapper = mapper;
         }
 
         /* Acciones */
-        
-        /* Tres formas de llamar el listado: reglas de ruteo */
-        [HttpGet]                       // api/generos
-        [HttpGet ("listado")]           // api/generos/listado
-        [HttpGet("/listadoGeneros")]    // /listadoGeneros
-        
-        public ActionResult<List<Genero>> Get(){
+        [HttpGet] // api/generos       
+        public async Task<ActionResult<List<GeneroDTO>>> Get([FromQuery] PaginacionDTO paginacionDTO){
 
-            logger.LogInformation("Vamos a mostrar los generos");
-            return repositorio.ObtenerTodosLosGeneros();
+            //var generos = await context.Genero.ToListAsync();
+            //Paginacion
+            var queryable =  context.Genero.AsQueryable();
+            await HttpContext.InsertarParametrosPaginacionEnCabecera(queryable);
+            var generos = await queryable.OrderBy( x => x.Nombre).Paginar(paginacionDTO).ToListAsync();
+            //todo lo que hay en genero, lo pasa (mapea) a listado de generoDTO que es lo qe se le muestra al usuario
+            return mapper.Map<List<GeneroDTO>>(generos);
 
         }
-
-        [HttpGet ("guid")] //api/generos/guid
-        public ActionResult<Guid> GetGUID(){
-            return repositorio.ObtenerGuid();
-        }
-
-
 
         /* Obtener un genero por su Id */
         [HttpGet("{Id:int}")] //  api/generos/1
-        public async Task<ActionResult<Genero>> Get(int Id, [FromHeader] string nombre){
+        public async Task<ActionResult<GeneroDTO>> Get(int Id){
 
-            logger.LogDebug("Obteniendo un genero por el id {Id}");
-            
-            var genero = await repositorio.ObtenerPorId(Id);
+            var genero = await context.Genero.FirstOrDefaultAsync(x => x.Id == Id);
 
-            if(genero == null){
-                logger.LogWarning($"No pudimos encontrar el genero de id {Id}");
-                return NotFound();//error 400
-            }
+            if(genero == null){ return NotFound();}
 
-            return genero;
+            return mapper.Map<GeneroDTO>(genero);
+
         }
-        /* ActionResult para hacer funcionar el NotFound, id:int -> solo numero enteros, genero null, si se introduce
-        un id invalido entonces genero= null return NOTFOUND, de igual forma si no existe un id */
-
-        /* Task, async, await -> programacion asincrona, espera la respuesta de nuestra base de datos */
-
-
+        
         /* FromBody para hacer el posteo */
         [HttpPost]
-        public ActionResult Post([FromBody] Genero genero){
+        public async Task<ActionResult> Post([FromBody] GeneroCrearDTO generoCreacionDTO){
+
+            var genero = mapper.Map<Genero>(generoCreacionDTO);
+            context.Add(genero);
+            await context.SaveChangesAsync();
             return NoContent();
         }
 
-        [HttpPut]
-        public void Put(){
-            
+        [HttpPut("{id:int}")]
+        public async Task<ActionResult> Put(int Id,  [FromBody] GeneroCrearDTO generoCreacionDTO){
+             var genero = await context.Genero.FirstOrDefaultAsync(x => x.Id == Id);
+
+            if(genero == null){ return NotFound();}
+
+            genero = mapper.Map(generoCreacionDTO, genero);
+
+            await context.SaveChangesAsync();
+
+            return NoContent();
+
         }
 
-        [HttpDelete]
-        public void Delete(){
-            
+        [HttpDelete("{id:int}")]
+        public async Task<ActionResult> Delete(int id){
+            var existe = await context.Genero.AnyAsync(x => x.Id == id);
+
+            if(!existe) { return NotFound();}
+
+            context.Remove(new Genero() {Id = id});
+            await context.SaveChangesAsync();
+            return NoContent();
         }
     }
 }
