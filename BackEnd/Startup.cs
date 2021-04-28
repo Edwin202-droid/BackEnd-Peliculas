@@ -1,4 +1,6 @@
+using AutoMapper;
 using BackEnd.Filtros;
+using BackEnd.Utilidades;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -10,6 +12,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
+using NetTopologySuite;
+using NetTopologySuite.Geometries;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,11 +33,29 @@ namespace BackEnd
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            //en BD y localmente (wwwroot)
+            services.AddTransient<IAlmacenadorArchivos, AlmacenadorArchivosLocal>();
+            services.AddHttpContextAccessor();
+            //en BD y AzureStorage
+            //services.AddTransient<IAlmacenadorArchivos, AlmacenadorAzureStorage>();
             //Automaper DTO - CONTROLLERS
             services.AddAutoMapper(typeof(Startup));
+            //Para la ubicacion
+            services.AddSingleton(provider =>
+                new MapperConfiguration(config =>
+                {
+                    var geometryFactory = provider.GetRequiredService<GeometryFactory>();
+                    config.AddProfile(new AutoMapperProfiles(geometryFactory));
+                }).CreateMapper());
+            
+
             //Base de datos 
             services.AddDbContext<ApplicationDbContext>(options =>
-                    options.UseSqlServer(Configuration.GetConnectionString("BDPeliculasAngular")));
+                    options.UseSqlServer(Configuration.GetConnectionString("BDPeliculasAngular"),
+                    sqlServer => sqlServer.UseNetTopologySuite()));//Para activar querys espaciales
+
+            //Para poder usar distancias
+            services.AddSingleton<GeometryFactory>(NtsGeometryServices.Instance.CreateGeometryFactory(srid: 4326));
 
             /* CORS */
             services.AddCors(options => {
@@ -69,6 +91,8 @@ namespace BackEnd
             }
 
             app.UseHttpsRedirection();
+            //Guardar archivos localmente
+            app.UseStaticFiles();
 
             app.UseRouting();
 
