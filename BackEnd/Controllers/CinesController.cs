@@ -33,12 +33,12 @@ namespace BackEnd.Controllers
             
             return mapper.Map<List<CineDTO>>(cines);
 
-        }
+        }                                                                                      
 
         [HttpGet("{Id:int}")] //  api/generos/1
         public async Task<ActionResult<CineDTO>> Get(int Id){
 
-            var cine = await context.Cines.FirstOrDefaultAsync(x => x.Id == Id);
+            var cine = await context.Cines                 .FirstOrDefaultAsync(x => x.Id == Id);
 
             if(cine == null){ return NotFound();}
 

@@ -17,5 +17,7 @@ namespace BackEnd.Entidades
 
         //QuerysEspaciales
         public Point Ubicacion { get; set; } //ubicacion representa: latitud y longitud
+
+        public List<PeliculasCines> PeliculasCines { get; set; }
     }
 }

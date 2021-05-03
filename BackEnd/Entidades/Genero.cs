@@ -15,5 +15,7 @@ namespace BackEnd.Entidades
         [StringLength(maximumLength: 50)]
         [PrimeraLetraMayus] //Validacion personalizada por atributo
         public string Nombre { get; set; }
+
+        public List<PeliculasGeneros> PeliculasGeneros { get; set; }
     }
 }

@@ -36,7 +36,8 @@ namespace BackEnd.Controllers{
         }
 
         /* Acciones */
-        [HttpGet] // api/generos       
+        [HttpGet] // api/generos  
+        //Paginados     
         public async Task<ActionResult<List<GeneroDTO>>> Get([FromQuery] PaginacionDTO paginacionDTO){
 
             //var generos = await context.Genero.ToListAsync();
@@ -47,6 +48,13 @@ namespace BackEnd.Controllers{
             //todo lo que hay en genero, lo pasa (mapea) a listado de generoDTO que es lo qe se le muestra al usuario
             return mapper.Map<List<GeneroDTO>>(generos);
 
+        }
+        [HttpGet("todos")]
+        //Todos
+        public async Task<ActionResult<List<GeneroDTO>>> Todos()
+        {
+            var generos = await context.Genero.ToListAsync();
+            return mapper.Map<List<GeneroDTO>>(generos);
         }
 
         /* Obtener un genero por su Id */
